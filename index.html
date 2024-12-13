@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نمایش رویدادها</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css">
+    <style>
+        body {
+            font-family: 'Vazir', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .event-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .event-image {
+            max-width: 100%;
+            border-radius: 8px;
+            height: 200px;
+            object-fit: cover;
+        }
+        h1 {
+            color: #333;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .filter-container {
+            margin-bottom: 20px;
+        }
+    </style>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font/dist/font-face.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">رویدادهای ایوند</h1>
+        <div class="filter-container text-center">
+            <label for="filter" class="form-label">فیلتر براساس:</label>
+            <select id="filter" class="form-select w-auto d-inline-block">
+                <option value="all">همه</option>
+                <option value="online">آنلاین</option>
+                <option value="in-person">حضوری</option>
+            </select>
+        </div>
+        <div id="events" class="row">
+            <!-- رویدادها به صورت پویا اینجا اضافه می‌شوند -->
+        </div>
+    </div>
+
+    <script>
+        async function fetchEvents() {
+            const url = 'https://api.evand.com/events?per_page=943';
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const sortedEvents = data.data.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+                displayEvents(sortedEvents);
+                addFilterListener(sortedEvents);
+                setupLazyLoading();
+            } catch (error) {
+                console.error('خطا در دریافت اطلاعات:', error);
+            }
+        }
+
+        function displayEvents(events) {
+            const eventsContainer = document.getElementById('events');
+            eventsContainer.innerHTML = '';
+
+            events.forEach(event => {
+                const eventCard = document.createElement('div');
+                eventCard.className = 'col-md-6 col-lg-4 mb-4';
+                eventCard.setAttribute('data-type', event.online === 'yes' ? 'online' : 'in-person');
+                eventCard.innerHTML = `
+                    <div class="event-card" itemscope itemtype="https://schema.org/Event">
+                        <img data-src="${event.cover?.original || ''}" alt="${event.name}" class="event-image mb-3 lazy" itemprop="image">
+                        <h5 itemprop="name">${event.name}</h5>
+                        <p><strong>تاریخ شروع:</strong> <span itemprop="startDate" content="${new Date(event.start_date).toISOString()}">${new Date(event.start_date).toLocaleDateString('fa-IR')}</span></p>
+                        <p><strong>محل:</strong> <span itemprop="location" itemscope itemtype="https://schema.org/Place">
+                            <span itemprop="address">${event.address || 'آنلاین'}</span>
+                        </span></p>
+                        <p><strong>برگزار کننده:</strong> <span itemprop="organizer" itemscope itemtype="https://schema.org/Organization">
+                            <span itemprop="name">${event.organization.name}</span>
+                        </span></p>
+                        <a href="https://evand.com/events/${event.slug}" target="_blank" class="btn btn-primary" itemprop="url">مشاهده جزئیات</a>
+                    </div>
+                `;
+                eventsContainer.appendChild(eventCard);
+            });
+        }
+
+        function addFilterListener(events) {
+            const filterElement = document.getElementById('filter');
+            filterElement.addEventListener('change', () => {
+                const filterValue = filterElement.value;
+                const filteredEvents = filterValue === 'all'
+                    ? events
+                    : events.filter(event => (filterValue === 'online' && event.online === 'yes') || (filterValue === 'in-person' && event.online === 'no'));
+                displayEvents(filteredEvents);
+                setupLazyLoading();
+            });
+        }
+
+        function setupLazyLoading() {
+            const lazyImages = document.querySelectorAll('.lazy');
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.classList.remove('lazy');
+                        observer.unobserve(img);
+                    }
+                });
+            });
+
+            lazyImages.forEach(img => observer.observe(img));
+        }
+
+        // دریافت و نمایش رویدادها هنگام بارگذاری صفحه
+        fetchEvents();
+    </script>
+</body>
+</html>
